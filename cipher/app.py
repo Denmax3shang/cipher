@@ -1,12 +1,11 @@
-from cipher.personality import NAME, INTRO
+from cipher.personality import NAME, INTRO, MODES
 from cipher.core import brain
 from cipher.core.memory import get_scope, add_scope, remove_scope
 
-HELP = """/scope add <host>     authorize a host you own
-/scope remove <host>
-/scope list
-/clear               reset conversation
-/exit"""
+HELP = """/mode security | social | chill | research
+/scope add HOST | remove HOST | list
+/clear  reset conversation
+/exit   quit"""
 
 
 def command(text):
@@ -15,7 +14,15 @@ def command(text):
         return HELP
     if p[0] == "/clear":
         brain.reset()
-        return "Conversation cleared."
+        return "Conversation cleared. ✨"
+    if p[0] == "/mode":
+        if len(p) == 2:
+            name = p[1].lower()
+            if brain.set_mode(name):
+                return f"{MODES[name]['emoji']} Mode: {name}"
+            return "Unknown mode. Options: " + ", ".join(MODES)
+        cur = brain.get_mode()
+        return f"{MODES[cur]['emoji']} Current mode: {cur}. Options: " + ", ".join(MODES)
     if p[0] == "/scope":
         if len(p) == 3 and p[1] == "add":
             add_scope(p[2])
@@ -32,14 +39,14 @@ def run():
     print(f"\n{INTRO}")
     while True:
         try:
-            text = input("\nYou: ").strip()
+            text = input(f"\nYou [{brain.get_mode()}]: ").strip()
         except (KeyboardInterrupt, EOFError):
             print(f"\n{NAME}: Goodbye.")
             break
         if not text:
             continue
         if text in ("/exit", "exit", "quit"):
-            print(f"\n{NAME}: Goodbye.")
+            print(f"\n{NAME}: Goodbye. 👋")
             break
         if text.startswith("/"):
             print(f"\n{command(text)}")
