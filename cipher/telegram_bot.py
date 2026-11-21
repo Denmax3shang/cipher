@@ -8,12 +8,14 @@ import traceback
 import requests
 
 from cipher.app import command
+from cipher.config import API_KEY, BASE_URL
 from cipher.core import brain, scheduler
 from cipher.core.memory import voice_on
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 OWNER = os.environ.get("TELEGRAM_OWNER_ID", "")
 CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "")
+STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 
@@ -54,6 +56,20 @@ def send(chat, text):
         api("sendMessage", chat_id=chat, text=text[i:i + 4000])
 
 
+def transcribe(file_id):
+    info = requests.get(f"{API}/getFile", params={"file_id": file_id}, timeout=20).json()
+    path = info["result"]["file_path"]
+    audio = requests.get(f"https://api.telegram.org/file/bot{TOKEN}/{path}",
+                         timeout=60).content
+    r = requests.post(f"{BASE_URL}/audio/transcriptions",
+                      headers={"Authorization": f"Bearer {API_KEY}"},
+                      data={"model": STT_MODEL, "response_format": "text"},
+                      files={"file": ("voice.ogg", audio)}, timeout=60)
+    if not r.ok:
+        raise RuntimeError(f"{r.status_code}: {r.text[:200]}")
+    return r.text.strip()
+
+
 def speak(chat, text):
     try:
         from gtts import gTTS
@@ -66,12 +82,10 @@ def speak(chat, text):
         buf.seek(0)
         r = requests.post(f"{API}/sendVoice", data={"chat_id": chat},
                           files={"voice": ("cipher.mp3", buf)}, timeout=60)
-        print("voice:", r.status_code, r.text[:200], flush=True)
         if not r.ok:
             buf.seek(0)
-            r = requests.post(f"{API}/sendAudio", data={"chat_id": chat, "title": "CIPHER"},
-                              files={"audio": ("cipher.mp3", buf)}, timeout=60)
-            print("audio:", r.status_code, r.text[:200], flush=True)
+            requests.post(f"{API}/sendAudio", data={"chat_id": chat, "title": "CIPHER"},
+                          files={"audio": ("cipher.mp3", buf)}, timeout=60)
     except Exception:
         print(traceback.format_exc(), flush=True)
 
@@ -107,15 +121,32 @@ def run():
                 offset = u["update_id"] + 1
                 m = u.get("message") or {}
                 text, chat = m.get("text"), m.get("chat", {}).get("id")
+                media = m.get("voice") or m.get("audio")
                 sender = str(m.get("from", {}).get("id"))
-                if not text or chat is None:
+                if chat is None or not (text or media):
                     continue
                 if not OWNER:
                     send(chat, f"Your Telegram ID is {sender}. Set TELEGRAM_OWNER_ID={sender} and restart the bot.")
                     continue
                 if sender != OWNER:
                     continue
-                is_cmd = text.startswith("/")
+
+                heard = False
+                if not text:
+                    try:
+                        typing(chat)
+                        text = transcribe(media["file_id"])
+                    except Exception as e:
+                        print(traceback.format_exc(), flush=True)
+                        send(chat, f"Couldn't process that voice note: {e}")
+                        continue
+                    if not text:
+                        send(chat, "I couldn't hear anything in that voice note 🎙️")
+                        continue
+                    send(chat, f"🎙️ I heard: {text}")
+                    heard = True
+
+                is_cmd = text.startswith("/") and not heard
                 try:
                     typing(chat)
                     reply = command(text) if is_cmd else brain.process_command(text)
@@ -123,7 +154,7 @@ def run():
                     print(traceback.format_exc(), flush=True)
                     reply = f"Error: {e}"
                 send(chat, reply)
-                if not is_cmd and voice_on():
+                if not is_cmd and (heard or voice_on()):
                     speak(chat, reply)
         except KeyboardInterrupt:
             raise
