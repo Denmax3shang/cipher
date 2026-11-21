@@ -16,6 +16,7 @@ TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 OWNER = os.environ.get("TELEGRAM_OWNER_ID", "")
 CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "")
 STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
+STT_LANG = os.environ.get("STT_LANG", "en")
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 
@@ -74,7 +75,8 @@ def transcribe(file_id):
                          timeout=60).content
     r = requests.post(f"{BASE_URL}/audio/transcriptions",
                       headers={"Authorization": f"Bearer {API_KEY}"},
-                      data={"model": STT_MODEL, "response_format": "text"},
+                      data={"model": STT_MODEL, "response_format": "text",
+                            **({"language": STT_LANG} if STT_LANG else {})},
                       files={"file": ("voice.ogg", audio)}, timeout=60)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text[:200]}")
