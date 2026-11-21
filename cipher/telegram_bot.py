@@ -81,24 +81,31 @@ def transcribe(file_id):
     return r.text.strip()
 
 
+def speakable(text):
+    return 0 < len(text) <= 600 and text.count("\n") <= 6
+
+
 def speak(chat, text):
     try:
         from gtts import gTTS
         clean = re.sub(r"[^\w\s.,!?'\-:;()%/@#]", "", text)
-        clean = re.sub(r"\s+", " ", clean).strip()[:600]
+        clean = re.sub(r"\s+", " ", clean).strip()
         if not clean:
-            return
+            return False
         buf = io.BytesIO()
         gTTS(clean, lang="en").write_to_fp(buf)
         buf.seek(0)
         r = requests.post(f"{API}/sendVoice", data={"chat_id": chat},
                           files={"voice": ("cipher.mp3", buf)}, timeout=60)
-        if not r.ok:
-            buf.seek(0)
-            requests.post(f"{API}/sendAudio", data={"chat_id": chat, "title": "CIPHER"},
+        if r.ok:
+            return True
+        buf.seek(0)
+        r = requests.post(f"{API}/sendAudio", data={"chat_id": chat, "title": "CIPHER"},
                           files={"audio": ("cipher.mp3", buf)}, timeout=60)
+        return r.ok
     except Exception:
         log_error()
+        return False
 
 
 def scheduler_loop():
@@ -164,9 +171,10 @@ def run():
                 except Exception as e:
                     log_error()
                     reply = f"Error: {redact(str(e))}"
+                if (not is_cmd and (heard or voice_on())
+                        and speakable(plain(reply)) and speak(chat, plain(reply))):
+                    continue
                 send(chat, reply)
-                if not is_cmd and (heard or voice_on()):
-                    speak(chat, reply)
         except KeyboardInterrupt:
             raise
         except Exception:
