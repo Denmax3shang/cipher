@@ -19,6 +19,17 @@ STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 
+def redact(s):
+    for secret in (TOKEN, API_KEY):
+        if secret:
+            s = s.replace(secret, "***")
+    return s
+
+
+def log_error():
+    print(redact(traceback.format_exc()), flush=True)
+
+
 def plain(t):
     t = re.sub(r"^\s*\|[\s:\-|]+\|?\s*$", "", t, flags=re.M)
     t = re.sub(r"^\s*-{3,}\s*$", "", t, flags=re.M)
@@ -87,7 +98,7 @@ def speak(chat, text):
             requests.post(f"{API}/sendAudio", data={"chat_id": chat, "title": "CIPHER"},
                           files={"audio": ("cipher.mp3", buf)}, timeout=60)
     except Exception:
-        print(traceback.format_exc(), flush=True)
+        log_error()
 
 
 def scheduler_loop():
@@ -101,9 +112,9 @@ def scheduler_loop():
                     try:
                         send(CHANNEL, p["text"])
                     except Exception:
-                        print(traceback.format_exc(), flush=True)
+                        log_error()
         except Exception:
-            print(traceback.format_exc(), flush=True)
+            log_error()
         time.sleep(20)
 
 
@@ -137,8 +148,8 @@ def run():
                         typing(chat)
                         text = transcribe(media["file_id"])
                     except Exception as e:
-                        print(traceback.format_exc(), flush=True)
-                        send(chat, f"Couldn't process that voice note: {e}")
+                        log_error()
+                        send(chat, f"Couldn't process that voice note: {redact(str(e))}")
                         continue
                     if not text:
                         send(chat, "I couldn't hear anything in that voice note 🎙️")
@@ -151,15 +162,15 @@ def run():
                     typing(chat)
                     reply = command(text) if is_cmd else brain.process_command(text)
                 except Exception as e:
-                    print(traceback.format_exc(), flush=True)
-                    reply = f"Error: {e}"
+                    log_error()
+                    reply = f"Error: {redact(str(e))}"
                 send(chat, reply)
                 if not is_cmd and (heard or voice_on()):
                     speak(chat, reply)
         except KeyboardInterrupt:
             raise
         except Exception:
-            print(traceback.format_exc(), flush=True)
+            log_error()
             time.sleep(5)
 
 
