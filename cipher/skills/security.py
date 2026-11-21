@@ -56,6 +56,14 @@ def password_check(password):
     common = {"password", "123456", "qwerty", "letmein", "admin", "welcome"}
     if password.lower() in common:
         return "Very weak: common password."
+    pattern = None
+    if re.fullmatch(r"[A-Za-z]{3,12}\d{1,4}[^\w\s]{0,2}", password):
+        pattern = "word + digits (+ symbol)"
+    elif any(s in password.lower() for s in ("qwerty", "asdf", "12345", "abcde", "letmein")):
+        pattern = "keyboard or number sequence"
+    if pattern:
+        return (f"Weak: follows a very common pattern ({pattern}). Raw estimate "
+                f"~{bits:.0f} bits, but real strength is far lower. Attackers try these first.")
     verdict = ("weak" if bits < 40 else "okay" if bits < 60
                else "strong" if bits < 80 else "very strong")
     return f"~{bits:.0f} bits, {verdict} (upper bound, ignores patterns)."
