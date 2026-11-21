@@ -27,7 +27,21 @@ def plain(t):
 
 
 def api(method, **payload):
-    return requests.post(f"{API}/{method}", json=payload, timeout=20)
+    last = None
+    for _ in range(2):
+        try:
+            return requests.post(f"{API}/{method}", json=payload, timeout=30)
+        except requests.RequestException as e:
+            last = e
+    raise last
+
+
+def typing(chat):
+    try:
+        requests.post(f"{API}/sendChatAction",
+                      json={"chat_id": chat, "action": "typing"}, timeout=5)
+    except requests.RequestException:
+        pass
 
 
 def send(chat, text):
@@ -58,7 +72,7 @@ def run():
                 if sender != OWNER:
                     continue
                 try:
-                    api("sendChatAction", chat_id=chat, action="typing")
+                    typing(chat)
                     reply = command(text) if text.startswith("/") else brain.process_command(text)
                 except Exception as e:
                     print(traceback.format_exc(), flush=True)
