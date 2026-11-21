@@ -47,3 +47,11 @@ def remove_scope(host):
 def in_scope(host):
     host = host.lower().strip()
     return host in ("localhost", "127.0.0.1") or host in get_scope()
+
+
+def voice_on():
+    return load_json("voice.json", {"on": False})["on"]
+
+
+def set_voice(on):
+    save_json("voice.json", {"on": bool(on)})

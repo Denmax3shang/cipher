@@ -1,15 +1,19 @@
+import io
 import os
 import re
+import threading
 import time
 import traceback
 
 import requests
 
 from cipher.app import command
-from cipher.core import brain
+from cipher.core import brain, scheduler
+from cipher.core.memory import voice_on
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 OWNER = os.environ.get("TELEGRAM_OWNER_ID", "")
+CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "")
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 
@@ -50,10 +54,50 @@ def send(chat, text):
         api("sendMessage", chat_id=chat, text=text[i:i + 4000])
 
 
+def speak(chat, text):
+    try:
+        from gtts import gTTS
+        clean = re.sub(r"[^\w\s.,!?'\-:;()%/@#]", "", text)
+        clean = re.sub(r"\s+", " ", clean).strip()[:600]
+        if not clean:
+            return
+        buf = io.BytesIO()
+        gTTS(clean, lang="en").write_to_fp(buf)
+        buf.seek(0)
+        r = requests.post(f"{API}/sendVoice", data={"chat_id": chat},
+                          files={"voice": ("cipher.mp3", buf)}, timeout=60)
+        print("voice:", r.status_code, r.text[:200], flush=True)
+        if not r.ok:
+            buf.seek(0)
+            r = requests.post(f"{API}/sendAudio", data={"chat_id": chat, "title": "CIPHER"},
+                              files={"audio": ("cipher.mp3", buf)}, timeout=60)
+            print("audio:", r.status_code, r.text[:200], flush=True)
+    except Exception:
+        print(traceback.format_exc(), flush=True)
+
+
+def scheduler_loop():
+    while True:
+        try:
+            for p in scheduler.due_posts():
+                if OWNER:
+                    send(OWNER, f"📱 Time to post!\n\n{p['text']}")
+                scheduler.mark_sent(p["id"])
+                if CHANNEL:
+                    try:
+                        send(CHANNEL, p["text"])
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+        time.sleep(20)
+
+
 def run():
     if not TOKEN:
         raise SystemExit("Set TELEGRAM_TOKEN first.")
     print("CIPHER Telegram bot running. Ctrl+C to stop.", flush=True)
+    threading.Thread(target=scheduler_loop, daemon=True).start()
     offset = None
     while True:
         try:
@@ -71,13 +115,16 @@ def run():
                     continue
                 if sender != OWNER:
                     continue
+                is_cmd = text.startswith("/")
                 try:
                     typing(chat)
-                    reply = command(text) if text.startswith("/") else brain.process_command(text)
+                    reply = command(text) if is_cmd else brain.process_command(text)
                 except Exception as e:
                     print(traceback.format_exc(), flush=True)
                     reply = f"Error: {e}"
                 send(chat, reply)
+                if not is_cmd and voice_on():
+                    speak(chat, reply)
         except KeyboardInterrupt:
             raise
         except Exception:

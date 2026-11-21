@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 import requests
 from cipher.config import API_KEY, BASE_URL, MODEL, MAX_HISTORY
 from cipher.personality import BASE, MODES, DEFAULT_MODE
@@ -46,7 +47,7 @@ def _tools():
 def _call():
     facts = "\n".join(f"- {f}" for f in get_facts()) or "- none yet"
     system = {"role": "system",
-              "content": BASE.format(mode=_mode, mode_prompt=MODES[_mode]["prompt"], facts=facts)}
+              "content": BASE.format(now=datetime.now().strftime("%A %Y-%m-%d %H:%M"), mode=_mode, mode_prompt=MODES[_mode]["prompt"], facts=facts)}
     body = {"model": MODEL, "messages": [system] + history, "max_tokens": 1500}
     tools = _tools()
     if tools:

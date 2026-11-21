@@ -1,9 +1,10 @@
 from cipher.personality import NAME, INTRO, MODES
 from cipher.core import brain
-from cipher.core.memory import get_scope, add_scope, remove_scope
+from cipher.core.memory import get_scope, add_scope, remove_scope, voice_on, set_voice
 
 HELP = """/mode security | social | chill | research
 /scope add HOST | remove HOST | list
+/voice on | off   Telegram voice replies
 /clear  reset conversation
 /exit   quit"""
 
@@ -23,6 +24,11 @@ def command(text):
             return "Unknown mode. Options: " + ", ".join(MODES)
         cur = brain.get_mode()
         return f"{MODES[cur]['emoji']} Current mode: {cur}. Options: " + ", ".join(MODES)
+    if p[0] == "/voice":
+        if len(p) == 2 and p[1] in ("on", "off"):
+            set_voice(p[1] == "on")
+            return "🔊 Voice replies on (Telegram only)" if p[1] == "on" else "🔇 Voice replies off"
+        return "Voice is " + ("on" if voice_on() else "off") + ". Use /voice on or /voice off"
     if p[0] == "/scope":
         if len(p) == 3 and p[1] == "add":
             add_scope(p[2])

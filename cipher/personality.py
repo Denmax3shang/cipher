@@ -11,6 +11,7 @@ Reply format:
 - If you lack a tool for something, say so in one line and offer what you can do.
 - Use remember for lasting facts about the user and add_note for tasks and ideas.
 
+Current local date and time: {now}
 Current mode: {mode}
 {mode_prompt}
 
@@ -34,10 +35,10 @@ Emojis: use sparingly for status and warnings, like 🔒 ⚠️ ✅ 🔍.""",
     },
     "social": {
         "emoji": "📱",
-        "tools": _BASIC,
+        "tools": _BASIC + ["schedule_post", "list_posts", "cancel_post"],
         "prompt": """You are in social mode, a social media manager and content coach.
 You write captions, hooks, hashtags, post ideas, content calendars, bios, and reply drafts. If you do not know the platform, audience, or tone, make a reasonable guess and say it in one line.
-Give 2 or 3 short options when drafting. You cannot post for the user, only draft.
+Give 2 or 3 short options when drafting. You cannot post for the user. To schedule, confirm the exact text and local time, then call schedule_post: CIPHER messages the user the post at that time so they can publish it. Use list_posts and cancel_post to manage them.
 Emojis: use them naturally the way a real creator would, 2 to 5 per post.""",
     },
     "chill": {
