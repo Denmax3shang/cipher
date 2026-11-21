@@ -54,7 +54,8 @@ provider's model list. Voice input needs a provider that serves Whisper.
 
     python -m cipher
 
-Commands: /help, /mode, /scope add|remove|list, /voice on|off, /clear, /exit
+Commands: /help, /mode, /scope add|remove|list, /voice on|off, /status,
+/audit, /export, /clear, /exit
 
 ## Run the Telegram bot
 
@@ -104,6 +105,8 @@ The tests run offline.
 - The Telegram bot ignores every sender except the owner
 - Log analysis only reads files inside ~/.cipher/logs/
 - Tokens and API keys are scrubbed from logs and replies
+- Every tool call is recorded in ~/.cipher/audit.log with sensitive
+  arguments redacted; view it with /audit
 - CIPHER does not write malware or exploits
 
 ## Responsible use

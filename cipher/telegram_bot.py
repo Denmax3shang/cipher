@@ -8,6 +8,7 @@ import traceback
 import requests
 
 from cipher.app import command
+from cipher.core.report import make_export
 from cipher.config import API_KEY, BASE_URL
 from cipher.core import brain, scheduler
 from cipher.core.memory import voice_on
@@ -165,6 +166,17 @@ def run():
                         continue
                     send(chat, f"🎙️ I heard: {text}")
                     heard = True
+
+                if text.strip().lower() == "/export" and not heard:
+                    try:
+                        path = make_export()
+                        with path.open("rb") as fh:
+                            requests.post(f"{API}/sendDocument", data={"chat_id": chat},
+                                          files={"document": (path.name, fh)}, timeout=60)
+                    except Exception as e:
+                        log_error()
+                        send(chat, f"Export failed: {redact(str(e))}")
+                    continue
 
                 is_cmd = text.startswith("/") and not heard
                 try:

@@ -4,6 +4,7 @@ import requests
 from cipher.config import API_KEY, BASE_URL, MODEL, MAX_HISTORY
 from cipher.personality import BASE, MODES, DEFAULT_MODE
 from cipher.core.memory import get_facts, load_json, save_json
+from cipher.core import audit
 from cipher.skills import TOOLS, load_all
 
 load_all()
@@ -79,6 +80,7 @@ def process_command(text):
 
         for c in msg["tool_calls"]:
             name = c["function"]["name"]
+            args = {}
             try:
                 if name not in _allowed():
                     raise RuntimeError("tool not available in this mode")
@@ -86,5 +88,6 @@ def process_command(text):
                 out = TOOLS[name]["func"](**args)
             except Exception as e:
                 out = f"Error: {e}"
+            audit.record(_mode, name, args, out)
             history.append({"role": "tool", "tool_call_id": c["id"], "content": str(out)})
     return "Too many steps. Try rephrasing."
