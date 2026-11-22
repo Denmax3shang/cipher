@@ -21,15 +21,31 @@ def _sky(code):
     return "mixed"
 
 
+def _geocode(city):
+    words = city.replace("<", " ").replace(">", " ").replace(",", " ").split()
+    for cut in range(len(words), 0, -1):
+        name = " ".join(words[:cut])
+        hint = " ".join(words[cut:]).lower()
+        results = requests.get("https://geocoding-api.open-meteo.com/v1/search",
+                               params={"name": name, "count": 10},
+                               timeout=15).json().get("results") or []
+        if not results:
+            continue
+        if not hint:
+            return results[0]
+        for p in results:
+            if hint in f"{p.get('country', '')} {p.get('admin1', '')}".lower():
+                return p
+    return None
+
+
 @skill("get_weather", "Get current weather and a 3-day forecast for a city.",
        {"city": {"type": "string"}}, ["city"])
 def get_weather(city):
     try:
-        g = requests.get("https://geocoding-api.open-meteo.com/v1/search",
-                         params={"name": city, "count": 1}, timeout=15).json()
-        if not g.get("results"):
-            return "City not found."
-        p = g["results"][0]
+        p = _geocode(city)
+        if not p:
+            return ("City not found. Try just the town name, or the nearest bigger town.")
         w = requests.get("https://api.open-meteo.com/v1/forecast", params={
             "latitude": p["latitude"], "longitude": p["longitude"],
             "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",

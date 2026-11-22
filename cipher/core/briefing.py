@@ -40,7 +40,7 @@ def build(now=None):
     if cfg["city"]:
         lines.append("🌤️ " + get_weather(cfg["city"]))
     else:
-        lines.append("🌤️ Set your city for weather: /briefing city <name>")
+        lines.append("🌤️ Set your city for weather: /briefing city YOUR_CITY")
 
     posts = [p for p in scheduler.list_posts() if p["when"].startswith(today)]
     lines += ["", "📱 Posts today:"]
@@ -96,7 +96,7 @@ def handle(args):
         save(cfg)
         return f"Briefing time set to {cfg['time']}."
     if cmd == "city" and len(args) >= 2:
-        cfg["city"] = " ".join(args[1:])
+        cfg["city"] = " ".join(args[1:]).replace("<", "").replace(">", "").strip()
         save(cfg)
         return f"Briefing city set to {cfg['city']}."
     if cmd == "settings":
