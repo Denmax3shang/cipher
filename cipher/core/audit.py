@@ -4,7 +4,7 @@ from datetime import datetime
 from cipher.core import memory
 
 SAFE = {"host", "ports", "port", "domain", "url", "query", "filename",
-        "city", "topic", "algo", "when", "post_id", "length"}
+        "city", "topic", "algo", "when", "post_id", "length", "method", "action"}
 ICON = {"ok": "✅", "blocked": "🚫", "error": "⚠️"}
 MAX_BYTES = 1_000_000
 
