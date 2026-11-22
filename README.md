@@ -9,7 +9,8 @@ manages social media drafts, researches topics, and talks by voice.
 Switch with /mode <name>. Each mode has its own personality and tool set.
 
 - security: scanner, hash tools, password tools, log analysis, CVE lookup,
-  WHOIS, subdomain lookup, SSL checks
+  WHOIS, subdomain lookup, SSL checks, decoding toolkit (Base64, hex, URL,
+  ROT13, Caesar, JWT)
 - social: captions, hooks, hashtags, content calendars, post scheduler
 - chill: jokes, banter, and a friendly listener
 - research: Wikipedia lookups with sources
@@ -88,6 +89,7 @@ as a channel admin and set TELEGRAM_CHANNEL="@yourchannel".
         logs.py         auth and web log analyzer
         cve.py          NVD vulnerability lookup
         recon.py        WHOIS, subdomains, SSL check
+        decode.py       Base64, hex, URL, ROT13, Caesar, JWT decoding
         social.py       post scheduling tools
         research.py     Wikipedia lookup
         weather.py      Open-Meteo weather
