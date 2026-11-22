@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from cipher.config import API_KEY, BASE_URL, MODEL
-from cipher.core import audit, brain, memory, scheduler
+from cipher.core import audit, brain, limiter, memory, scheduler
 from cipher.personality import MODES
 
 
@@ -18,6 +18,7 @@ def status():
         f"Facts: {len(memory.get_facts())} | Notes: {len(memory.load_json('notes.json', []))}",
         f"Scheduled posts: {len(scheduler.list_posts())}",
         f"Tool calls logged: {audit.count()}",
+        limiter.summary(),
     ])
 
 

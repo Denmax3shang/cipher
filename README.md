@@ -29,6 +29,8 @@ All modes include weather, time, notes, and persistent memory.
 - Daily briefing: weather, today's posts, latest notes, a 24-hour activity
   summary and a security tip, sent each morning (/briefing)
 - Secrets are redacted from logs and error messages
+- Rate limiting: caps model calls per minute and per day to protect free API
+  quotas (/usage)
 
 ## Install
 
@@ -49,6 +51,8 @@ Optional:
 
     STT_MODEL     speech-to-text model (default whisper-large-v3-turbo)
     STT_LANG      transcription language (default en, empty for auto-detect)
+    RATE_PER_MIN  max model calls per minute (default 20)
+    RATE_PER_DAY  max model calls per day (default 400)
 
 Model names change over time. If you get "model not found", check your
 provider's model list. Voice input needs a provider that serves Whisper.
@@ -58,7 +62,7 @@ provider's model list. Voice input needs a provider that serves Whisper.
     python -m cipher
 
 Commands: /help, /mode, /scope add|remove|list, /voice on|off, /status,
-/audit, /export, /briefing, /clear, /exit
+/audit, /export, /briefing, /usage, /clear, /exit
 
 ## Run the Telegram bot
 
@@ -83,6 +87,7 @@ as a channel admin and set TELEGRAM_CHANNEL="@yourchannel".
         memory.py       JSON storage, facts, scope, voice setting
         scheduler.py    scheduled posts
         briefing.py     daily briefing
+        limiter.py      API rate limiting
       skills/
         system.py       time, notes, memory
         security.py     scanner, hashes, passwords, header audit

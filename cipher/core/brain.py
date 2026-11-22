@@ -4,7 +4,7 @@ import requests
 from cipher.config import API_KEY, BASE_URL, MODEL, MAX_HISTORY
 from cipher.personality import BASE, MODES, DEFAULT_MODE
 from cipher.core.memory import get_facts, load_json, save_json
-from cipher.core import audit
+from cipher.core import audit, limiter
 from cipher.skills import TOOLS, load_all
 
 load_all()
@@ -46,6 +46,7 @@ def _tools():
 
 
 def _call():
+    limiter.check()
     facts = "\n".join(f"- {f}" for f in get_facts()) or "- none yet"
     system = {"role": "system",
               "content": BASE.format(now=datetime.now().strftime("%A %Y-%m-%d %H:%M"), mode=_mode, mode_prompt=MODES[_mode]["prompt"], facts=facts)}
@@ -56,6 +57,9 @@ def _call():
     r = requests.post(f"{BASE_URL}/chat/completions",
                       headers={"Authorization": f"Bearer {API_KEY}"},
                       json=body, timeout=25)
+    if r.status_code == 429:
+        raise RuntimeError("The AI provider is rate limiting you. Wait about "
+                           f"{r.headers.get('retry-after', '30')} seconds and try again.")
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text[:300]}")
     return r.json()["choices"][0]["message"]
@@ -70,7 +74,12 @@ def process_command(text):
         history.pop(0)
 
     for _ in range(6):
-        msg = _call()
+        try:
+            msg = _call()
+        except limiter.RateLimited as e:
+            if history and history[-1]["role"] == "user":
+                history.pop()
+            return str(e)
         entry = {"role": "assistant", "content": msg.get("content") or ""}
         if msg.get("tool_calls"):
             entry["tool_calls"] = msg["tool_calls"]
