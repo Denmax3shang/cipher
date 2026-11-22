@@ -10,7 +10,7 @@ import requests
 from cipher.app import command
 from cipher.core.report import make_export
 from cipher.config import API_KEY, BASE_URL
-from cipher.core import brain, scheduler
+from cipher.core import brain, briefing, scheduler
 from cipher.core.memory import voice_on
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
@@ -114,6 +114,9 @@ def speak(chat, text):
 def scheduler_loop():
     while True:
         try:
+            if OWNER and briefing.due():
+                send(OWNER, briefing.build())
+                briefing.mark_sent()
             for p in scheduler.due_posts():
                 if OWNER:
                     send(OWNER, f"📱 Time to post!\n\n{p['text']}")

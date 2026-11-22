@@ -25,6 +25,8 @@ All modes include weather, time, notes, and persistent memory.
 - Telegram front-end locked to one owner account
 - Voice notes in (Whisper speech-to-text) and voice replies out (gTTS)
 - Post scheduler: CIPHER messages you the post at the chosen time
+- Daily briefing: weather, today's posts, latest notes, a 24-hour activity
+  summary and a security tip, sent each morning (/briefing)
 - Secrets are redacted from logs and error messages
 
 ## Install
@@ -55,7 +57,7 @@ provider's model list. Voice input needs a provider that serves Whisper.
     python -m cipher
 
 Commands: /help, /mode, /scope add|remove|list, /voice on|off, /status,
-/audit, /export, /clear, /exit
+/audit, /export, /briefing, /clear, /exit
 
 ## Run the Telegram bot
 
@@ -79,6 +81,7 @@ as a channel admin and set TELEGRAM_CHANNEL="@yourchannel".
         brain.py        LLM calls and tool loop
         memory.py       JSON storage, facts, scope, voice setting
         scheduler.py    scheduled posts
+        briefing.py     daily briefing
       skills/
         system.py       time, notes, memory
         security.py     scanner, hashes, passwords, header audit

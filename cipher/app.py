@@ -1,11 +1,12 @@
 from cipher.personality import NAME, INTRO, MODES
-from cipher.core import audit, brain
+from cipher.core import audit, brain, briefing
 from cipher.core.report import make_export, status
 from cipher.core.memory import get_scope, add_scope, remove_scope, voice_on, set_voice
 
 HELP = """/mode security | social | chill | research
 /scope add HOST | remove HOST | list
 /voice on | off   Telegram voice replies
+/briefing  morning summary: on, off, time HH:MM, city NAME
 /status  system overview
 /audit [n]  recent tool activity
 /export  save notes, facts and chat
@@ -28,6 +29,8 @@ def command(text):
             return "Unknown mode. Options: " + ", ".join(MODES)
         cur = brain.get_mode()
         return f"{MODES[cur]['emoji']} Current mode: {cur}. Options: " + ", ".join(MODES)
+    if p[0] == "/briefing":
+        return briefing.handle(p[1:])
     if p[0] == "/status":
         return status()
     if p[0] == "/audit":

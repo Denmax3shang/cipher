@@ -62,3 +62,15 @@ def tail(n=10):
         lines.append(f"{ICON.get(e['status'], '?')} {e['time'][5:16]} "
                      f"[{e['mode']}] {e['tool']} {args}".strip())
     return "\n".join(lines)
+
+
+def recent(hours=24):
+    from datetime import timedelta
+    cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    return [e for e in _entries() if e["time"] >= cutoff]
+
+
+def recent(hours=24):
+    from datetime import timedelta
+    cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    return [e for e in _entries() if e["time"] >= cutoff]
