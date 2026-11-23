@@ -1,5 +1,5 @@
 from cipher.personality import NAME, INTRO, MODES
-from cipher.core import audit, brain, briefing, limiter
+from cipher.core import audit, brain, briefing, limiter, recon_pipeline
 from cipher.core.report import make_export, status
 from cipher.core.memory import get_scope, add_scope, remove_scope, voice_on, set_voice
 
@@ -7,6 +7,7 @@ HELP = """/mode security | social | chill | research
 /scope add HOST | remove HOST | list
 /voice on | off   Telegram voice replies
 /briefing  morning summary: on, off, time HH:MM, city NAME
+/recon DOMAIN  full recon dossier (whois+subdomains+ports+TLS)
 /usage  API calls used today
 /status  system overview
 /audit [n]  recent tool activity
@@ -32,6 +33,10 @@ def command(text):
         return f"{MODES[cur]['emoji']} Current mode: {cur}. Options: " + ", ".join(MODES)
     if p[0] == "/briefing":
         return briefing.handle(p[1:])
+    if p[0] == "/recon":
+        if len(p) != 2:
+            return "Usage: /recon DOMAIN"
+        return recon_pipeline.run(p[1], brain.get_mode())
     if p[0] == "/usage":
         return limiter.summary()
     if p[0] == "/status":

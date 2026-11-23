@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cipher-ai"
-version = "0.7.0"
+version = "0.8.0"
 description = "Personal cybersecurity AI assistant for Termux"
 requires-python = ">=3.9"
 dependencies = ["requests", "gTTS"]
