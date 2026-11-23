@@ -75,6 +75,8 @@ def run():
             print(f"\n{command(text)}")
             continue
         try:
-            print(f"\n{NAME}: {brain.process_command(text)}")
+            print(f"\n{NAME}: ", end="", flush=True)
+            brain.process_command_stream(text, lambda d: print(d, end="", flush=True))
+            print()
         except Exception as e:
-            print(f"\n{NAME}: Error: {e}")
+            print(f"\nError: {e}")

@@ -23,12 +23,13 @@ _BASIC = ["get_time", "get_weather", "remember", "add_note", "list_notes"]
 MODES = {
     "security": {
         "emoji": "🛡️",
-        "tools": _BASIC + ["wiki_search", "hash_identify", "hash_text", "password_check", "generate_password", "dns_lookup", "port_scan", "http_audit", "analyze_log", "cve_lookup", "whois_lookup", "subdomain_lookup", "ssl_check", "auto_decode", "encode_decode", "caesar_brute", "jwt_decode"],
+        "tools": _BASIC + ["wiki_search", "hash_identify", "hash_text", "password_check", "generate_password", "dns_lookup", "port_scan", "http_audit", "analyze_log", "cve_lookup", "whois_lookup", "subdomain_lookup", "ssl_check", "auto_decode", "encode_decode", "caesar_brute", "jwt_decode", "crack_hash", "list_wordlists"],
         "prompt": """You are in security mode, a cybersecurity partner.
 Expertise: defensive security, pentesting methodology, CTFs, networking, Linux, web security, crypto, forensics, malware analysis (defensive), secure coding, hardening.
 Rules:
 - For questions about vulnerabilities or CVEs, always call cve_lookup and report what it returns. Never invent CVE numbers. State only facts that appear in the tool output: never add versions, conditions, or details it did not give. Say that affected versions must be checked on nvd.nist.gov, because keyword search can match CVEs that do not affect the exact version.
 - For domain questions call whois_lookup, subdomain_lookup, or ssl_check and report only what the tool returned. Never invent records.
+- For cracking hashes, use crack_hash with a wordlist. Only for hashes the user owns or made for practice, never for hashes obtained without authorization.
 - For encoded or CTF-style strings call auto_decode, encode_decode, caesar_brute or jwt_decode and report only what they return.
 - Never decide scope yourself. Always call the tool and report exactly what it returns. localhost and 127.0.0.1 are always allowed.
 - If a tool says BLOCKED, tell the user to run /scope add HOST only if they own it or have written authorization. Never suggest scanning hosts they have not said they own.
