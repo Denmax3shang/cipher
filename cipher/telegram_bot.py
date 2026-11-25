@@ -8,10 +8,10 @@ import traceback
 import requests
 
 from cipher.app import command
-from cipher.core.report import make_export
 from cipher.config import API_KEY, BASE_URL
-from cipher.core import brain, briefing, scheduler
+from cipher.core import approvals, audit, brain, briefing, scheduler
 from cipher.core.memory import voice_on
+from cipher.skills import TOOLS
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 OWNER = os.environ.get("TELEGRAM_OWNER_ID", "")
@@ -19,17 +19,6 @@ CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "")
 STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
 STT_LANG = os.environ.get("STT_LANG", "en")
 API = f"https://api.telegram.org/bot{TOKEN}"
-
-
-def redact(s):
-    for secret in (TOKEN, API_KEY):
-        if secret:
-            s = s.replace(secret, "***")
-    return s
-
-
-def log_error():
-    print(redact(traceback.format_exc()), flush=True)
 
 
 def plain(t):
@@ -43,6 +32,17 @@ def plain(t):
     t = re.sub(r"\*\*(.+?)\*\*", r"\1", t)
     t = t.replace("`", "")
     return re.sub(r"\n{3,}", "\n\n", t).strip()
+
+
+def redact(s):
+    for secret in (TOKEN, API_KEY):
+        if secret:
+            s = s.replace(secret, "***")
+    return s
+
+
+def log_error():
+    print(redact(traceback.format_exc()), flush=True)
 
 
 def api(method, **payload):
@@ -69,16 +69,60 @@ def send(chat, text):
         api("sendMessage", chat_id=chat, text=text[i:i + 4000])
 
 
+def send_approval(chat, aid):
+    pending = approvals.get(aid)
+    if not pending:
+        return
+    args = " ".join(f"{k}={v}" for k, v in pending["args"].items())
+    text = plain(f"Approval needed\n{pending['tool']} {args}".strip())
+    kb = {"inline_keyboard": [[
+        {"text": "✅ Approve", "callback_data": f"appr:{aid}"},
+        {"text": "❌ Deny", "callback_data": f"deny:{aid}"},
+    ]]}
+    api("sendMessage", chat_id=chat, text=text[:4000], reply_markup=kb)
+
+
+def handle_callback(cq):
+    cq_id = cq.get("id")
+    sender = str(cq.get("from", {}).get("id"))
+    chat = cq.get("message", {}).get("chat", {}).get("id")
+    data = cq.get("data", "")
+    try:
+        requests.post(f"{API}/answerCallbackQuery",
+                      json={"callback_query_id": cq_id}, timeout=10)
+    except requests.RequestException:
+        pass
+    if not OWNER or sender != OWNER or chat is None:
+        return
+    action, _, aid = data.partition(":")
+    pending = approvals.take(aid)
+    if not pending:
+        send(chat, "That request already expired or was handled.")
+        return
+    tool, args, mode = pending["tool"], pending["args"], pending["mode"]
+    if action == "appr":
+        try:
+            result = TOOLS[tool]["func"](**args)
+        except Exception as e:
+            result = f"Error: {e}"
+        audit.record(mode, tool + " (approved)", args, result)
+        send(chat, f"Approved: {tool}\n{result}")
+    else:
+        audit.record(mode, tool + " (denied)", args, "denied by user")
+        send(chat, f"Denied: {tool}")
+
+
 def transcribe(file_id):
     info = requests.get(f"{API}/getFile", params={"file_id": file_id}, timeout=20).json()
     path = info["result"]["file_path"]
-    audio = requests.get(f"https://api.telegram.org/file/bot{TOKEN}/{path}",
-                         timeout=60).content
+    audio_bytes = requests.get(f"https://api.telegram.org/file/bot{TOKEN}/{path}",
+                               timeout=60).content
+    data = {"model": STT_MODEL, "response_format": "text"}
+    if STT_LANG:
+        data["language"] = STT_LANG
     r = requests.post(f"{BASE_URL}/audio/transcriptions",
                       headers={"Authorization": f"Bearer {API_KEY}"},
-                      data={"model": STT_MODEL, "response_format": "text",
-                            **({"language": STT_LANG} if STT_LANG else {})},
-                      files={"file": ("voice.ogg", audio)}, timeout=60)
+                      data=data, files={"file": ("voice.ogg", audio_bytes)}, timeout=60)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text[:200]}")
     return r.text.strip()
@@ -119,7 +163,7 @@ def scheduler_loop():
                 briefing.mark_sent()
             for p in scheduler.due_posts():
                 if OWNER:
-                    send(OWNER, f"📱 Time to post!\n\n{p['text']}")
+                    send(OWNER, f"Time to post!\n\n{p['text']}")
                 scheduler.mark_sent(p["id"])
                 if CHANNEL:
                     try:
@@ -143,6 +187,12 @@ def run():
                              params={"timeout": 30, "offset": offset}, timeout=40).json()
             for u in r.get("result", []):
                 offset = u["update_id"] + 1
+
+                cq = u.get("callback_query")
+                if cq:
+                    handle_callback(cq)
+                    continue
+
                 m = u.get("message") or {}
                 text, chat = m.get("text"), m.get("chat", {}).get("id")
                 media = m.get("voice") or m.get("audio")
@@ -155,6 +205,18 @@ def run():
                 if sender != OWNER:
                     continue
 
+                if text and text.strip().lower() == "/export":
+                    try:
+                        from cipher.core.report import make_export
+                        path = make_export()
+                        with path.open("rb") as fh:
+                            requests.post(f"{API}/sendDocument", data={"chat_id": chat},
+                                          files={"document": (path.name, fh)}, timeout=60)
+                    except Exception as e:
+                        log_error()
+                        send(chat, f"Export failed: {redact(str(e))}")
+                    continue
+
                 heard = False
                 if not text:
                     try:
@@ -165,33 +227,28 @@ def run():
                         send(chat, f"Couldn't process that voice note: {redact(str(e))}")
                         continue
                     if not text:
-                        send(chat, "I couldn't hear anything in that voice note 🎙️")
+                        send(chat, "I couldn't hear anything in that voice note")
                         continue
-                    send(chat, f"🎙️ I heard: {text}")
+                    send(chat, f"I heard: {text}")
                     heard = True
-
-                if text.strip().lower() == "/export" and not heard:
-                    try:
-                        path = make_export()
-                        with path.open("rb") as fh:
-                            requests.post(f"{API}/sendDocument", data={"chat_id": chat},
-                                          files={"document": (path.name, fh)}, timeout=60)
-                    except Exception as e:
-                        log_error()
-                        send(chat, f"Export failed: {redact(str(e))}")
-                    continue
 
                 is_cmd = text.startswith("/") and not heard
                 try:
                     typing(chat)
-                    reply = command(text) if is_cmd else brain.process_command(text)
+                    reply = command(text) if is_cmd else brain.process_command(text, chat=chat)
                 except Exception as e:
                     log_error()
                     reply = f"Error: {redact(str(e))}"
-                if (not is_cmd and (heard or voice_on())
-                        and speakable(plain(reply)) and speak(chat, plain(reply))):
-                    continue
-                send(chat, reply)
+
+                spoke = False
+                if not is_cmd and (heard or voice_on()):
+                    spoke = speakable(plain(reply)) and speak(chat, plain(reply))
+                if not spoke:
+                    send(chat, reply)
+
+                if not is_cmd:
+                    for aid in approvals.drain():
+                        send_approval(chat, aid)
         except KeyboardInterrupt:
             raise
         except Exception:

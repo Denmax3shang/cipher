@@ -1,5 +1,7 @@
 # CIPHER
 
+![CI](https://github.com/Denmax3shang/cipher/actions/workflows/ci.yml/badge.svg)
+
 A personal AI assistant for Termux and Telegram with a cybersecurity core.
 It chats like a normal AI, remembers things about you, runs security tools,
 manages social media drafts, researches topics, and talks by voice.
@@ -29,6 +31,9 @@ All modes include weather, time, notes, and persistent memory.
 - Daily briefing: weather, today's posts, latest notes, a 24-hour activity
   summary and a security tip, sent each morning (/briefing)
 - Secrets are redacted from logs and error messages
+- Inline approval buttons: port_scan and crack_hash pause and wait for an
+  Approve/Deny tap in Telegram before they run (terminal use is unaffected,
+  since you already typed the command yourself)
 - Rate limiting: caps model calls per minute and per day to protect free API
   quotas (/usage)
 

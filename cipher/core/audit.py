@@ -5,7 +5,7 @@ from cipher.core import memory
 
 SAFE = {"host", "ports", "port", "domain", "url", "query", "filename",
         "city", "topic", "algo", "when", "post_id", "length", "method", "action"}
-ICON = {"ok": "✅", "blocked": "🚫", "error": "⚠️"}
+ICON = {"ok": "✅", "blocked": "🚫", "error": "⚠️", "pending": "⏳"}
 MAX_BYTES = 1_000_000
 
 
@@ -17,6 +17,7 @@ def record(mode, tool, args, result):
     try:
         res = str(result)
         status = ("blocked" if res.startswith("BLOCKED")
+                  else "pending" if res.startswith("Approval requested")
                   else "error" if res.startswith("Error") else "ok")
         entry = {
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

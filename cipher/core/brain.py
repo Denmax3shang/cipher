@@ -5,7 +5,7 @@ import requests
 from cipher.config import API_KEY, BASE_URL, MODEL, MAX_HISTORY
 from cipher.personality import BASE, MODES, DEFAULT_MODE
 from cipher.core.memory import get_facts, load_json, save_json
-from cipher.core import audit, limiter
+from cipher.core import approvals, audit, limiter
 from cipher.skills import TOOLS, load_all
 
 load_all()
@@ -13,6 +13,8 @@ history = []
 _mode = load_json("state.json", {}).get("mode", DEFAULT_MODE)
 if _mode not in MODES:
     _mode = DEFAULT_MODE
+
+RISKY = {"port_scan", "crack_hash"}
 
 
 def get_mode():
@@ -111,7 +113,7 @@ def _call_stream(emit):
     return msg
 
 
-def _run_tools(msg):
+def _run_tools(msg, chat=None):
     for c in msg["tool_calls"]:
         name = c["function"]["name"]
         args = {}
@@ -119,7 +121,12 @@ def _run_tools(msg):
             if name not in _allowed():
                 raise RuntimeError("tool not available in this mode")
             args = json.loads(c["function"]["arguments"] or "{}")
-            out = TOOLS[name]["func"](**args)
+            if chat is not None and name in RISKY:
+                aid = approvals.create(_mode, name, args, chat)
+                out = (f"Approval requested (id {aid}). This tool needs a tap on "
+                       "Approve or Deny in Telegram before it runs.")
+            else:
+                out = TOOLS[name]["func"](**args)
         except Exception as e:
             out = f"Error: {e}"
         audit.record(_mode, name, args, out)
@@ -132,7 +139,7 @@ def _trim():
         history.pop(0)
 
 
-def process_command(text):
+def process_command(text, chat=None):
     if not API_KEY:
         return "Run: export LLM_API_KEY=your-key"
     history.append({"role": "user", "content": text})
@@ -152,11 +159,11 @@ def process_command(text):
         history.append(entry)
         if not msg.get("tool_calls"):
             return entry["content"]
-        _run_tools(msg)
+        _run_tools(msg, chat)
     return "Too many steps. Try rephrasing."
 
 
-def process_command_stream(text, emit):
+def process_command_stream(text, emit, chat=None):
     if not API_KEY:
         emit("Run: export LLM_API_KEY=your-key")
         return
@@ -178,5 +185,5 @@ def process_command_stream(text, emit):
         history.append(entry)
         if not msg.get("tool_calls"):
             return
-        _run_tools(msg)
+        _run_tools(msg, chat)
     emit("Too many steps. Try rephrasing.")
